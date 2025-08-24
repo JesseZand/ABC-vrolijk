@@ -319,7 +319,7 @@ function renderExample(opt){
   } else {
     const img = document.createElement("img");
     const folder = state.currentLetter;
-    const filename = opt.word.toLowerCase().replaceAll(" ", "_") + ".jpg";
+    const filename = opt.word.toLowerCase().replaceAll(" ", "_") + ".png";
     img.alt = opt.word;
     img.src = `assets/words/${folder}/${filename}`;
     img.onerror = () => { elExample.innerHTML = `<div class="name">${opt.word}</div>`; };
