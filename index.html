@@ -29,7 +29,7 @@
       padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px;
       min-height:62vh; justify-content:center;
     }
-    .letter{font-size: clamp(86px, 18vw, 160px); line-height:1; font-weight:700; color:var(--letter-color); text-align:center;}
+    .letter{font-size: clamp(86px, 25vw, 200px); line-height:1; font-weight:700; color:var(--letter-color); text-align:center;}
     .letter.small{font-size: clamp(64px, 14vw, 120px)}
     .both{display:flex; gap:.3em; align-items:baseline}
     .lower{opacity:.65}
@@ -55,6 +55,11 @@
     .hidden{display:none}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media (prefers-reduced-motion: reduce){ .bounce{animation:none} }
+    @media (max-width: 600px) {
+      .letter {
+      font-size: clamp(100px, 30vw, 240px);
+      }
+    }
   </style>
 </head>
 <body>
@@ -107,8 +112,8 @@
 <script>
 /* ------------------------- Content & Config ------------------------- */
 const LETTERS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","IJ","Z"];
-const WEIGHTS = { A:.077,B:.015,C:.013,D:.060,E:.190,F:.008,G:.034,H:.023,I:.060,J:.018,K:.028,L:.036,M:.023,N:.100,
-  O:.060,P:.015,Q:.001,R:.064,S:.037,T:.067,U:.020,V:.028,W:.015,X:.002, IJ:.004, Z:.013 };
+const WEIGHTS = { A:.077,B:.015,C:.013,D:.060,E:.190,F:.008,G:.034,H:.023,I:.060,J:.15,K:.028,L:.036,M:.023,N:.200,
+  O:.060,P:.015,Q:.001,R:.064,S:.037,T:.067,U:.020,V:.028,W:.015,X:.002, IJ:.01, Z:.013 };
 
 const WORD_LIST = {
   A:[{word:"appel"},{word:"auto"},{word:"Apolo",isName:true}],
@@ -124,11 +129,11 @@ const WORD_LIST = {
   K:[{word:"kast"},{word:"kikker"}],
   L:[{word:"leeuw"},{word:"lamp"},{word:"Leo",isName:true}],
   M:[{word:"muis"},{word:"maan"},{word:"mama", isName:true},{word:"Misha",isName:true}],
-  N:[{word:"neus"},{word:"noot"},{word:"Nina",isName:true}],
+  N:[{word:"neus"},{word:"noot"},{word:"Nina",isName:true},{word:"Nina",isName:true}],
   O:[{word:"olifant"},{word:"oog"},{word:"oma"},{word:"opa"}],
   P:[{word:"poes"},{word:"peer"},{word:"papa", isName:true}],
-  Q:[{word:"quiz"},{word:"queen",isName:true}],
-  R:[{word:"robot"},{word:"regen"}],
+  Q:[{word:"quiz"},{word:"queer"}],
+  R:[{word:"rat"},{word:"regen"}],
   S:[{word:"slang"},{word:"schaap"},{word:"Sofia",isName:true}, {word:"Steffie",isName:true}],
   T:[{word:"tijger"},{word:"trein"},{word:"Tio",isName:true}],
   U:[{word:"uil"},{word:"ui"}],
@@ -187,6 +192,8 @@ chimeStart.preload = "auto"; chimeSuccess.preload = "auto";
 
 /* ------------------------------ TTS -------------------------------- */
 let selectedVoice = null;
+console.log("Selected voice:", selectedVoice && selectedVoice.name, selectedVoice && selectedVoice.lang);
+
 function refreshVoices(){
   const vs = speechSynthesis.getVoices().filter(v=> (v.lang||"").toLowerCase().startsWith("nl"));
   selectedVoice = vs.find(v=>/female|vrouw/i.test(v.name)) || vs[0] || null;
@@ -195,17 +202,21 @@ function refreshVoices(){
 speechSynthesis.onvoiceschanged = refreshVoices;
 refreshVoices();
 
-function speak(text, {rate=0.9, pitch=0.9} = {}){
+function speak(text, {rate=1.0, pitch=1.1} = {}){
   try{
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "nl-NL"; u.rate = rate; u.pitch = pitch;
+    u.lang = "nl-NL";
+
+    // Add small random variation
+    u.rate = rate + (Math.random() * 0.05 - 0.025);  // +/-0.025
+    u.pitch = pitch + (Math.random() * 0.05 - 0.025);
+
     if(selectedVoice) u.voice = selectedVoice;
-    // removed speechSynthesis.cancel(); to avoid cutting previous speech
     speechSynthesis.speak(u);
   }catch(e){}
 }
 
-function speakAsync(text, {rate=0.9, pitch=0.9} = {}){
+function speakAsync(text, {rate=0.9, pitch=0.95} = {}){
   return new Promise(resolve=>{
     try{
       const u = new SpeechSynthesisUtterance(text);
@@ -228,7 +239,15 @@ function weightedPick(){
   return "E";
 }
 function letterName(L){
-  const names = {A:"aa",B:"beh",C:"ceh",D:"deh",E:"eeh",F:"ef",G:"geh",H:"haa",I:"ie",J:"jeh",K:"kaa",L:"el",M:"em",N:"en",O:"oo",P:"peh",Q:"kuu",R:"er",S:"es",T:"teh",U:"uu",V:"veh",W:"weh",X:"iks",IJ:"ij",Z:"zet"};
+  // Standaard Nederlandse letternamen
+  const names = {
+    A:"aa",  B:"bee", C:"cee", D:"dee", E:"ee",
+    F:"ef",  G:"gee", H:"haa", I:"ie",  J:"jee",
+    K:"kaa", L:"el",  M:"em",  N:"en",  O:"oo",
+    P:"pee", Q:"kuu", R:"er",  S:"es",  T:"tee",
+    U:"uu",  V:"vee", W:"wee", X:"iks",
+    IJ:"ij", Z:"zet"
+  };
   return names[L] || L;
 }
 function waitOrPause(ms){
@@ -289,6 +308,17 @@ function randomPraise(){
   ]);
 }
 
+function sayLetterForTTS(L){
+  // Use the literal letter by default — sounds most natural on Dutch voices.
+  // Override only where literal tends to be wrong.
+  const overrides = {
+    IJ: "ij",  // special digraph
+    Q:  "kuu", // some voices say “cue”
+    X:  "iks", // some voices say “ex”
+    R:  "er",  // rolled R can be unclear as a single letter
+  };
+  return overrides[L] || L;
+}
 
 /* ---------------------------- Rendering ---------------------------- */
 function renderLetter(){
@@ -343,7 +373,6 @@ function hideCelebrate(){ elCelebrate.style.display = "none"; }
 /* ---------------------------- Main Loop ---------------------------- */
 async function runLesson(){
   let spoken = "";
-
   for(;;){
     if(state.shownInSet >= 5){
       state.step = "CELEBRATE";
@@ -366,7 +395,7 @@ async function runLesson(){
     try{ chimeStart.currentTime = 0; chimeStart.play(); }catch{}
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
-    await speakAsync(q, { rate: 0.92, pitch: 1.00 });
+    await speakAsync(q, { rate: 1.02, pitch: 1.05 });
     await waitOrPause(4000);
 
     // REVEAL
@@ -374,23 +403,37 @@ async function runLesson(){
     bounceLetter();
     try{ chimeSuccess.currentTime = 0; chimeSuccess.play(); }catch{}
     await waitOrPause(500);                       // a bit more room after the chime
-    spoken = letterName(state.currentLetter);
-    try { speechSynthesis.cancel(); } catch {}
-    state.lastSpoken = `De letter ${spoken}!`;    // little “!” helps intonation
-    await speakAsync(state.lastSpoken, { rate: 0.96, pitch: 0.98 });
+    const spoken  = letterName(state.currentLetter); // for UI/text if you like
+    const literal = state.currentLetter;             // the raw letter
+    const say     = sayLetterForTTS(state.currentLetter); // what we actually speak
+
+    state.lastSpoken = `De letter ${literal}!`;  // what “Herhaal” will repeat
+    await speakAsync(`De letter ${say}!`, { rate: 0.96, pitch: 1.02 });
+
+    await waitOrPause(500);
+    await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
+
+    await waitOrPause(500);
+    await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
+
+
 
     // EXAMPLE
     state.step = "EXAMPLE_WORD";
     const opt = randomChoice(WORD_LIST[state.currentLetter]);
     renderExample(opt);
-    state.lastSpoken = `${spoken}. ${spoken} is voor ${opt.word}. ${opt.word}.`;
-    await speakAsync(state.lastSpoken, { rate: 0.95, pitch: 0.98 });
+
+    await waitOrPause(500);
+    await speakAsync(`${spoken} is van ${opt.word}.`, { rate: 0.95, pitch: 0.98 });
+
+    await waitOrPause(400);
+    await speakAsync(`${opt.word}.`, { rate: 0.95, pitch: 0.98 });
     // een kleine extra aanmoediging na ~0.4s
     if (praiseTimer) { clearTimeout(praiseTimer); }
     praiseTimer = setTimeout(() => {
     // guard again in case we navigated away quickly
     try { speechSynthesis.cancel(); } catch {}
-    speak(randomPraise(), { rate: 1.00, pitch: 1.00 });
+    speak(randomPraise(), { rate: 1.07, pitch: 1.1 });
     praiseTimer = null;
     }, 500);
     await waitForNext();
