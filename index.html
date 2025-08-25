@@ -414,13 +414,12 @@ async function runLesson(){
     elExample.innerHTML = "";
     elNext.disabled = true;
 
-   // ASK
+    // ASK
     if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
     try { speechSynthesis.cancel(); } catch {}
     state.step = "ASK";
     try { chimeStart.currentTime = 0; chimeStart.play(); } catch {}
     const q = randomChoice(QUESTIONS);
-    state.lastSpoken = q;
 
     await speakAsync(q, { rate: 1.04, pitch: 1.12 });  // more lively, rising intonation
     await waitOrPause(4000);
@@ -482,11 +481,14 @@ elPause.addEventListener("click", ()=>{
   elPause.textContent = state.paused ? "▶️ Verder" : "⏸️ Pauze";
   elPause.setAttribute("aria-pressed", String(state.paused));
   vibrate();
-  if(!state.paused){
-    if(state.lastSpoken) speak(state.lastSpoken);
-  }else{
-    try{ speechSynthesis.cancel(); }catch{}
+  if (!state.paused) {
+  // Only auto-replay when we’re NOT in ASK
+  if (state.step !== "ASK" && state.lastSpoken) {
+    speak(state.lastSpoken);
   }
+} else {
+  try { speechSynthesis.cancel(); } catch {}
+}
 });
 elRepeat.addEventListener("click", ()=>{
   vibrate();
