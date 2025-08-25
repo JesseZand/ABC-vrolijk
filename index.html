@@ -329,7 +329,7 @@ async function speakPraise(text){
   if (t.startsWith("goed zo")) {
     // "Goed" slightly higher, "zo" a touch lower
     await speakAsync("Goed", { rate: 1.05, pitch: 1.25 });
-    await waitOrPause(80);
+    await waitOrPause(20);
     await speakAsync("zo!",  { rate: 1.05, pitch: 1.15 });
     return;
   }
