@@ -414,7 +414,7 @@ async function runLesson(){
     elExample.innerHTML = "";
     elNext.disabled = true;
 
-    // ASK
+   // ASK
     if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
     try { speechSynthesis.cancel(); } catch {}
     state.step = "ASK";
@@ -422,8 +422,7 @@ async function runLesson(){
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
 
-    speakAsync(q, { rate: 1.02, pitch: 1.1 });
-
+    await speakAsync(q, { rate: 1.04, pitch: 1.12 });  // more lively, rising intonation
     await waitOrPause(4000);
 
     // REVEAL
