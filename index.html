@@ -87,7 +87,7 @@
         <button class="btn secondary" id="repeatBtn" type="button">🔁 Herhaal</button>
         <button class="btn" id="nextBtn" type="button" disabled>➡️ Volgende letter</button>
       </div>
-      <div class="muted">Elke 5 letters: “Goed gedaan!” met een leuke sticker.</div>
+      <div class="muted">Hi Nina! Leer zo het alfabet met leuke plaatjes</div>
     </main>
   </div>
 
@@ -116,7 +116,7 @@ const WEIGHTS = { A:.077,B:.015,C:.013,D:.060,E:.190,F:.008,G:.034,H:.023,I:.060
   O:.060,P:.015,Q:.001,R:.064,S:.037,T:.067,U:.020,V:.028,W:.015,X:.002, IJ:.01, Z:.013 };
 
 const WORD_LIST = {
-  A:[{word:"appel"},{word:"auto"},{word:"Apolo",isName:true}],
+  A:[{word:"appel"},{word:"auto"},{word:"Apollo",isName:true}],
   B:[{word:"bal"},{word:"boom"}],
   C:[{word:"cirkel"},{word:"camera"}],
   D:[{word:"druif"},{word:"dino"}],
@@ -134,7 +134,7 @@ const WORD_LIST = {
   P:[{word:"poes"},{word:"peer"},{word:"papa", isName:true}],
   Q:[{word:"quiz"},{word:"queer"}],
   R:[{word:"rat"},{word:"regen"}],
-  S:[{word:"slang"},{word:"schaap"},{word:"Sofia",isName:true}, {word:"Steffie",isName:true}],
+  S:[{word:"slang"},{word:"schaap"},{word:"Sofía",isName:true}, {word:"Steffie",isName:true}],
   T:[{word:"tijger"},{word:"trein"},{word:"Tio",isName:true}],
   U:[{word:"uil"},{word:"ui"}],
   V:[{word:"vogel"},{word:"varken"}],
@@ -340,6 +340,19 @@ async function speakPraise(text){
   await speakAsync(text, { rate: 1.05, pitch: 1.20 });
 }
 
+function nameForSentence(L){
+  // Use Dutch names, all lowercase, to prevent the TTS from spelling/anglicizing
+  const names = {
+    A:"aa",  B:"bee", C:"cee", D:"dee", E:"ee",
+    F:"ef",  G:"gee", H:"haa", I:"ie",  J:"jee",
+    K:"kaa", L:"el",  M:"em",  N:"en",  O:"oo",
+    P:"pee", Q:"kuu", R:"er",  S:"es",  T:"tee",
+    U:"uu",  V:"vee", W:"wee", X:"iks",
+    IJ:"ij", Z:"zet"
+  };
+  return (names[L] || L).toLowerCase();
+}
+
 /* ---------------------------- Rendering ---------------------------- */
 function renderLetter(){
   const L = state.currentLetter;
@@ -383,9 +396,12 @@ function bounceLetter(){
 }
 
 /* ---------------------------- Celebrate ---------------------------- */
+const STICKER_COUNT = 6; // you currently have 6: animal_01..animal_06
+
 function showCelebrate(){
-  const n = Math.floor(Math.random()*20)+1;
-  elSticker.src = `assets/stickers/animal_${String(n).padStart(2,"0")}.png`;
+  const n = Math.floor(Math.random() * STICKER_COUNT) + 1; // 1..6
+  const id = String(n).padStart(2, "0");
+  elSticker.src = `assets/stickers/animal_${id}.png`;
   elCelebrate.style.display = "flex";
 }
 function hideCelebrate(){ elCelebrate.style.display = "none"; }
@@ -450,7 +466,8 @@ async function runLesson(){
     renderExample(opt);
 
     await waitOrPause(500);
-    await speakAsync(`${spoken} is van ${opt.word}.`, { rate: 0.95, pitch: 0.98 });
+    const letterNL = nameForSentence(state.currentLetter);
+    await speakAsync(`de ${letterNL} van ${opt.word}.`, { rate: 0.95, pitch: 0.98 });
 
     await waitOrPause(400);
     await speakAsync(`${opt.word}.`, { rate: 0.95, pitch: 0.98 });
