@@ -422,8 +422,7 @@ async function runLesson(){
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
 
-    await speakAsync(q, { rate: 1.02, pitch: 1.1 });
-    await waitOrPause(4000);
+    speakAsync(q, { rate: 1.02, pitch: 1.1 });
 
     await waitOrPause(4000);
 
