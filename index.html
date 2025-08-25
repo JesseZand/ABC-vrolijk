@@ -145,7 +145,7 @@ const WORD_LIST = {
 };
 
 const QUESTIONS = [
-  "Welke letter is het?",
+  "Welke letter is dit?",
   "Weet jij welke letter dit is?",
   "Welke letter hoor je hier?"
 ];
@@ -326,21 +326,15 @@ function sayLetterForTTS(L){
 async function speakPraise(text){
   const t = text.toLowerCase().trim();
 
-  if (t.startsWith("goed zo")) {
-    // "Goed" slightly higher, "zo" a touch lower
-    await speakAsync("Goed", { rate: 1.05, pitch: 1.25 });
-    await waitOrPause(20);
-    await speakAsync("zo!",  { rate: 1.05, pitch: 1.15 });
-    return;
-  }
+ if (t.startsWith("goed zo")) {
+  await speakAsync("Goed zo!", { rate: 1.05, pitch: 1.18 });
+  return;
+}
 
   if (t.startsWith("knap hoor")) {
-    // "Knap" slightly higher, "hoor" a touch lower
-    await speakAsync("Knap", { rate: 1.05, pitch: 1.25 });
-    await waitOrPause(80);
-    await speakAsync("hoor!",{ rate: 1.05, pitch: 0.15 });
-    return;
-  }
+  await speakAsync("Knap hoor!", { rate: 1.05, pitch: 1.18 });
+  return;
+}
 
   // default: one-shot
   await speakAsync(text, { rate: 1.05, pitch: 1.20 });
@@ -421,14 +415,14 @@ async function runLesson(){
     try { chimeStart.currentTime = 0; chimeStart.play(); } catch {}
     const q = randomChoice(QUESTIONS);
 
-    await speakAsync(q, { rate: 1.04, pitch: 1.12 });  // more lively, rising intonation
+    await speakAsync(q, { rate: 0.98, pitch: 1.20 });  // more lively, rising intonation
     await waitOrPause(4000);
 
     // REVEAL
     state.step = "REVEAL_LETTER";
     bounceLetter();
     try{ chimeSuccess.currentTime = 0; chimeSuccess.play(); }catch{}
-    await waitOrPause(500);                       // a bit more room after the chime
+    await waitOrPause(200);                       // a bit more room after the chime
     const spoken  = letterName(state.currentLetter); // for UI/text if you like
     const literal = state.currentLetter;             // the raw letter
     const say     = sayLetterForTTS(state.currentLetter); // what we actually speak
@@ -439,14 +433,14 @@ async function runLesson(){
     // Speak in two parts: normal intro, then emphasised letter
     await speakAsync("De letter", { rate: 0.96, pitch: 1.02 });
     await waitOrPause(150); // tiny pause so it doesn’t run together
-    await speakAsync(say + "!", { rate: 0.96, pitch: 1.20 }); // slightly higher pitch
+    await speakAsync(say + "!", { rate: 0.96, pitch: 1.02 }); // slightly higher pitch
 
 
     await waitOrPause(700);
-    await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
+    await speakAsync(`${say}.`, { rate: 0.99, pitch: 1.02 });
 
     await waitOrPause(800);
-    await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
+    await speakAsync(`${say}.`, { rate: 0.85, pitch: 1.02 });
 
 
 
