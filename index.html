@@ -418,11 +418,18 @@ async function runLesson(){
     if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
     try { speechSynthesis.cancel(); } catch {}
     state.step = "ASK";
-    try{ chimeStart.currentTime = 0; chimeStart.play(); }catch{}
+    try { chimeStart.currentTime = 0; chimeStart.play(); } catch {}
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
 
-   
+    await speakAsync(q, { rate: 1.02, pitch: 1.05 });
+    await waitOrPause(4000);
+
+    // split question into parts
+    if (q.endsWith("?")) {
+      const parts = q.split(" ");
+      const lastWord = parts.pop();   // take the last word ("is?")
+      const rest = parts.join(" ");
 
       // speak the main part normally
       await speakAsync(rest, { rate: 0.92, pitch: 1.00 });
