@@ -188,7 +188,14 @@ let praiseTimer = null;   // holds the timeout for the praise line
 /* -------------------------- Audio (SFX) ---------------------------- */
 const chimeStart = new Audio("assets/sfx/chime_start.mp3");
 const chimeSuccess = new Audio("assets/sfx/chime_success.mp3");
-chimeStart.preload = "auto"; chimeSuccess.preload = "auto";
+const jingles = [
+  new Audio("assets/sfx/jingle1.mp3"),
+  new Audio("assets/sfx/jingle2.mp3"),
+  new Audio("assets/sfx/jingle3.mp3")
+];
+chimeStart.preload = "auto"; 
+chimeSuccess.preload = "auto";
+jingles.forEach(j => j.preload = "auto");
 
 /* ------------------------------ TTS -------------------------------- */
 let selectedVoice = null;
@@ -399,10 +406,18 @@ function bounceLetter(){
 const STICKER_COUNT = 6; // you currently have 6: animal_01..animal_06
 
 function showCelebrate(){
-  const n = Math.floor(Math.random() * STICKER_COUNT) + 1; // 1..6
-  const id = String(n).padStart(2, "0");
-  elSticker.src = `assets/stickers/animal_${id}.png`;
+  const n = Math.floor(Math.random()*6)+1;  // random sticker 1–6
+  elSticker.src = `assets/stickers/animal_${String(n).padStart(2,"0")}.png`;
   elCelebrate.style.display = "flex";
+
+  // Play a random jingle
+  const j = jingles[Math.floor(Math.random()*jingles.length)];
+  try {
+    j.currentTime = 0; 
+    j.play();
+  } catch(e) {
+    console.warn("Jingle play failed", e);
+  }
 }
 function hideCelebrate(){ elCelebrate.style.display = "none"; }
 
