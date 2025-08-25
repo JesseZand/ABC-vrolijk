@@ -302,10 +302,13 @@ function waitForNext(){
 }
 
 function randomPraise(){
-  return randomChoice([
-    "Goed zo!", "Knap hoor!", "Topper!",
-    "Wat knap!", "Mooi gedaan!"
-  ]);
+  return [
+    "Goed zo!",      // split-intonation
+    "Knap hoor!",    // split-intonation
+    "Topper!",
+    "Wat knap!",
+    "Mooi gedaan!"
+  ][Math.floor(Math.random()*5)];
 }
 
 function sayLetterForTTS(L){
@@ -318,6 +321,29 @@ function sayLetterForTTS(L){
     R:  "er",  // rolled R can be unclear as a single letter
   };
   return overrides[L] || L;
+}
+
+async function speakPraise(text){
+  const t = text.toLowerCase().trim();
+
+  if (t.startsWith("goed zo")) {
+    // "Goed" slightly higher, "zo" a touch lower
+    await speakAsync("Goed", { rate: 1.05, pitch: 1.25 });
+    await waitOrPause(80);
+    await speakAsync("zo!",  { rate: 1.05, pitch: 1.15 });
+    return;
+  }
+
+  if (t.startsWith("knap hoor")) {
+    // "Knap" slightly higher, "hoor" a touch lower
+    await speakAsync("Knap", { rate: 1.05, pitch: 1.25 });
+    await waitOrPause(80);
+    await speakAsync("hoor!",{ rate: 1.05, pitch: 0.15 });
+    return;
+  }
+
+  // default: one-shot
+  await speakAsync(text, { rate: 1.05, pitch: 1.20 });
 }
 
 /* ---------------------------- Rendering ---------------------------- */
@@ -395,7 +421,24 @@ async function runLesson(){
     try{ chimeStart.currentTime = 0; chimeStart.play(); }catch{}
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
-    await speakAsync(q, { rate: 1.02, pitch: 1.05 });
+
+    // split question into parts
+    if (q.endsWith("?")) {
+      const parts = q.split(" ");
+      const lastWord = parts.pop();   // take the last word ("is?")
+      const rest = parts.join(" ");
+
+      // speak the main part normally
+      await speakAsync(rest, { rate: 0.92, pitch: 1.00 });
+      await waitOrPause(120);
+
+      // speak the last word with a bit more pitch (sounds like rising intonation)
+      await speakAsync(lastWord, { rate: 0.92, pitch: 1.18 });
+      } else {
+      // fallback if somehow not a question
+      await speakAsync(q, { rate: 0.92, pitch: 1.00 });
+    }
+
     await waitOrPause(4000);
 
     // REVEAL
@@ -407,13 +450,19 @@ async function runLesson(){
     const literal = state.currentLetter;             // the raw letter
     const say     = sayLetterForTTS(state.currentLetter); // what we actually speak
 
-    state.lastSpoken = `De letter ${literal}!`;  // what “Herhaal” will repeat
-    await speakAsync(`De letter ${say}!`, { rate: 0.96, pitch: 1.02 });
+    // Store what to repeat (still the full phrase)
+    state.lastSpoken = `De letter ${literal}!`;
 
-    await waitOrPause(500);
+    // Speak in two parts: normal intro, then emphasised letter
+    await speakAsync("De letter", { rate: 0.96, pitch: 1.02 });
+    await waitOrPause(150); // tiny pause so it doesn’t run together
+    await speakAsync(say + "!", { rate: 0.96, pitch: 1.20 }); // slightly higher pitch
+
+
+    await waitOrPause(700);
     await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
 
-    await waitOrPause(500);
+    await waitOrPause(800);
     await speakAsync(`${say}.`, { rate: 0.98, pitch: 1.02 });
 
 
@@ -430,11 +479,12 @@ async function runLesson(){
     await speakAsync(`${opt.word}.`, { rate: 0.95, pitch: 0.98 });
     // een kleine extra aanmoediging na ~0.4s
     if (praiseTimer) { clearTimeout(praiseTimer); }
-    praiseTimer = setTimeout(() => {
-    // guard again in case we navigated away quickly
-    try { speechSynthesis.cancel(); } catch {}
-    speak(randomPraise(), { rate: 1.07, pitch: 1.1 });
-    praiseTimer = null;
+    praiseTimer = setTimeout(async () => {
+      try { speechSynthesis.cancel(); } catch {}
+      const p = randomPraise();
+      state.lastSpoken = p;           // so the Repeat button can replay it if you like
+      await speakPraise(p);           // <- uses the split-intonation rules above
+      praiseTimer = null;
     }, 500);
     await waitForNext();
     state.shownInSet++;
