@@ -422,11 +422,7 @@ async function runLesson(){
     const q = randomChoice(QUESTIONS);
     state.lastSpoken = q;
 
-    // split question into parts
-    if (q.endsWith("?")) {
-      const parts = q.split(" ");
-      const lastWord = parts.pop();   // take the last word ("is?")
-      const rest = parts.join(" ");
+   
 
       // speak the main part normally
       await speakAsync(rest, { rate: 0.92, pitch: 1.00 });
