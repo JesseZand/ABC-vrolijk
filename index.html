@@ -425,6 +425,8 @@ async function runLesson(){
     await speakAsync(q, { rate: 1.02, pitch: 1.1 });
     await waitOrPause(4000);
 
+    await waitOrPause(4000);
+
     // REVEAL
     state.step = "REVEAL_LETTER";
     bounceLetter();
