@@ -112,9 +112,16 @@
 <script>
 /* ------------------------- Content & Config ------------------------- */
 const LETTERS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","IJ","Z"];
-const WEIGHTS = { A:.077,B:.015,C:.013,D:.060,E:.190,F:.008,G:.034,H:.023,I:.060,J:.15,K:.028,L:.036,M:.023,N:.200,
-  O:.060,P:.015,Q:.001,R:.064,S:.037,T:.067,U:.020,V:.028,W:.015,X:.002, IJ:.01, Z:.013 };
-
+const WEIGHTS = {
+  // Common ones → lower weight
+  A:1, E:1, N:1, O:1, I:1, T:1,
+  // Medium
+  D:2, R:2, S:2, K:2, L:2, M:2,
+  // Rare → higher weight
+  B:3, C:3, F:3, G:3, H:3, J:3, P:3, U:3, V:3, W:3, Z:3,
+  // Very rare → highest weight
+  Q:5, X:5, IJ:5,
+};
 const WORD_LIST = {
   A:[{word:"appel"},{word:"auto"},{word:"Apollo",isName:true}],
   B:[{word:"bal"},{word:"boom"}],
@@ -281,6 +288,29 @@ function waitOrNext(ms){
     setTimeout(tick, 50);
   });
 }
+async function ensureDutchVoice(timeoutMs = 2000){
+  const deadline = Date.now() + timeoutMs;
+
+  return new Promise(resolve => {
+    function select(){
+      const vs = speechSynthesis.getVoices();
+      if (vs.length === 0 && Date.now() < deadline) {
+        setTimeout(select, 100);
+        return;
+      }
+      const nl = vs.filter(v => /^nl([-_]|$)/i.test(v.lang || ""));
+      // Prefer “better” engines if present
+      selectedVoice =
+        nl.find(v => /Google|Microsoft|Apple/i.test(v.name)) ||
+        nl[0] || null;
+
+      state.voicesReady = !!selectedVoice;
+      resolve(selectedVoice);
+    }
+    select();
+  });
+}
+
 // Race any promise (like speakAsync) with the Next gate
 function raceNext(promise){
   return state.nextGate ? Promise.race([promise, state.nextGate.promise]) : promise;
@@ -331,15 +361,16 @@ function randomPraise(){
 }
 
 function sayLetterForTTS(L){
-  // Use the literal letter by default — sounds most natural on Dutch voices.
-  // Override only where literal tends to be wrong.
-  const overrides = {
-    IJ: "ij",  // special digraph
-    Q:  "kuu", // some voices say “cue”
-    X:  "iks", // some voices say “ex”
-    R:  "er",  // rolled R can be unclear as a single letter
+  // Always return the Dutch letter name string; lowercase keeps it natural
+  const names = {
+    A:"aa",  B:"bee", C:"cee", D:"dee", E:"ee",
+    F:"ef",  G:"gee", H:"haa", I:"ie",  J:"jee",
+    K:"kaa", L:"el",  M:"em",  N:"en",  O:"oo",
+    P:"pee", Q:"kuu", R:"er",  S:"es",  T:"tee",
+    U:"uu",  V:"vee", W:"wee", X:"iks",
+    IJ:"ij", Z:"zet"
   };
-  return overrides[L] || L;
+  return (names[L] || L).toLowerCase();
 }
 
 async function speakPraise(text){
@@ -516,14 +547,14 @@ async function runLesson(){
     // Speak in two parts: normal intro, then emphasised letter
     if (await raceNext (speakAsync("De letter", { rate: 0.96, pitch: 1.02 }))=== "NEXT");
     if (await waitOrNext(150)=== "NEXT"); // tiny pause so it doesn’t run together
-    if (await raceNext (speakAsync(say + "!", { rate: 0.96, pitch: 1.02 }))=== "NEXT"); // slightly higher pitch
+    if (await raceNext (speakAsync(`${say}`, { rate: 0.96, pitch: 1.09 }))=== "NEXT"); // slightly higher pitch
 
 
     if (await waitOrNext(700)=== "NEXT");
-    if (await raceNext (speakAsync(`${say}.`, { rate: 0.99, pitch: 1.02 }))=== "NEXT");
+    if (await raceNext (speakAsync(`${say}`, { rate: 0.99, pitch: 1.02 }))=== "NEXT");
 
     if (await waitOrNext(800)=== "NEXT");
-    if (await raceNext (speakAsync(`${say}.`, { rate: 0.85, pitch: 1.02 }))=== "NEXT");
+    if (await raceNext (speakAsync(`${say}`, { rate: 0.85, pitch: 1.02 }))=== "NEXT");
 
 
 
@@ -581,6 +612,7 @@ document.getElementById("startBtn").addEventListener("click", async ()=>{
   vibrate();
   try{ await chimeStart.play(); chimeStart.pause(); chimeStart.currentTime=0; }catch{}
   try{ await chimeSuccess.play(); chimeSuccess.pause(); chimeSuccess.currentTime=0; }catch{}
+  await ensureDutchVoice(1500);
   document.getElementById("gate").classList.add("hidden");
   setTimeout(()=> runLesson(), 100);
 });
