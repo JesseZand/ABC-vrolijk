@@ -166,7 +166,8 @@ let state = {
   paused: false,
   voicesReady: false,
   lastSpoken: "",
-  colorIndex: 0
+  colorIndex: 0,
+  nextGate: null,   // { promise, cleanup } or null
 };
 
 /* ------------------------------ DOM -------------------------------- */
@@ -257,7 +258,7 @@ function letterName(L){
   };
   return names[L] || L;
 }
-function waitOrPause(ms){
+function waitOrNext(ms){
   return new Promise(resolve=>{
     let remaining = ms;
     let last = Date.now();
@@ -280,6 +281,34 @@ function waitOrPause(ms){
     setTimeout(tick, 50);
   });
 }
+// Race any promise (like speakAsync) with the Next gate
+function raceNext(promise){
+  return state.nextGate ? Promise.race([promise, state.nextGate.promise]) : promise;
+}
+
+// (Keep this as a function declaration so it's hoisted)
+function waitOrPause(ms){
+  return new Promise(resolve=>{
+    let remaining = ms;
+    let last = Date.now();
+
+    function tick(){
+      if (state.paused) {
+        last = Date.now();
+        setTimeout(tick, 50);
+        return;
+      }
+      const now = Date.now();
+      remaining -= (now - last);
+      last = now;
+
+      if (remaining <= 0) resolve();
+      else setTimeout(tick, 50);
+    }
+
+    setTimeout(tick, 50);
+  });
+}
 
 function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function setGradientAndColor(){
@@ -289,23 +318,6 @@ function setGradientAndColor(){
   document.documentElement.style.setProperty("--bg1", g1);
   document.documentElement.style.setProperty("--bg2", g2);
   document.documentElement.style.setProperty("--letter-color", letterColor);
-}
-function waitForNext(){
-  return new Promise(resolve=>{
-    elNext.disabled = false;
-    const handler = ()=>{
-      vibrate();
-
-      // NEW: stop any pending praise or speech
-      if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
-      try { speechSynthesis.cancel(); } catch {}
-
-      elNext.disabled = true;
-      elNext.removeEventListener("click", handler);
-      resolve();
-    };
-    elNext.addEventListener("click", handler, { once:true });
-  });
 }
 
 function randomPraise(){
@@ -334,17 +346,17 @@ async function speakPraise(text){
   const t = text.toLowerCase().trim();
 
  if (t.startsWith("goed zo")) {
-  await speakAsync("Goed zo!", { rate: 1.05, pitch: 1.18 });
+  if (await raceNext (speakAsync("Goed zo!", { rate: 1.05, pitch: 1.18 }))=== "NEXT");
   return;
 }
 
   if (t.startsWith("knap hoor")) {
-  await speakAsync("Knap hoor!", { rate: 1.05, pitch: 1.18 });
+  if (await raceNext (speakAsync("Knap hoor!", { rate: 1.05, pitch: 1.18 }))=== "NEXT");
   return;
 }
 
   // default: one-shot
-  await speakAsync(text, { rate: 1.05, pitch: 1.20 });
+  if (await raceNext (speakAsync(text, { rate: 1.05, pitch: 1.20 }))=== "NEXT");
 }
 
 function nameForSentence(L){
@@ -359,6 +371,43 @@ function nameForSentence(L){
   };
   return (names[L] || L).toLowerCase();
 }
+
+function armNextGate(){
+  // Clean previous gate if any
+  if (state.nextGate?.cleanup) state.nextGate.cleanup();
+
+  let resolveFn;
+  const promise = new Promise(res => (resolveFn = res));
+
+  const handler = () => {
+    vibrate();
+
+    // Stop any pending praise or speech immediately
+    if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
+    try { speechSynthesis.cancel(); } catch {}
+
+    elNext.disabled = true; // prevent double taps
+    elNext.removeEventListener("click", handler);
+    resolveFn("NEXT");      // signal skip
+  };
+
+  elNext.disabled = false;              // enable "Next" right away
+  elNext.addEventListener("click", handler);
+
+  state.nextGate = {
+    promise,
+    cleanup: () => elNext.removeEventListener("click", handler),
+  };
+  return state.nextGate;
+}
+
+// Race a pause with the user pressing Next
+function waitOrNext(ms){
+  return state.nextGate
+    ? Promise.race([ waitOrPause(ms), state.nextGate.promise ])
+    : waitOrPause(ms);
+}
+
 
 /* ---------------------------- Rendering ---------------------------- */
 function renderLetter(){
@@ -406,20 +455,22 @@ function bounceLetter(){
 const STICKER_COUNT = 6; // you currently have 6: animal_01..animal_06
 
 function showCelebrate(){
-  const n = Math.floor(Math.random()*6)+1;  // random sticker 1–6
+  // prevent skip while modal is up
+  elNext.disabled = true;
+  if (state.nextGate?.cleanup) state.nextGate.cleanup();
+
+  const n = Math.floor(Math.random()*6)+1;
   elSticker.src = `assets/stickers/animal_${String(n).padStart(2,"0")}.png`;
   elCelebrate.style.display = "flex";
 
-  // Play a random jingle
   const j = jingles[Math.floor(Math.random()*jingles.length)];
-  try {
-    j.currentTime = 0; 
-    j.play();
-  } catch(e) {
-    console.warn("Jingle play failed", e);
-  }
+  try { j.currentTime = 0; j.play(); } catch(e) { console.warn("Jingle play failed", e); }
 }
-function hideCelebrate(){ elCelebrate.style.display = "none"; }
+
+function hideCelebrate(){
+  elCelebrate.style.display = "none";
+  armNextGate(); // re-enable skipping as soon as we’re back
+}
 
 /* ---------------------------- Main Loop ---------------------------- */
 async function runLesson(){
@@ -438,6 +489,7 @@ async function runLesson(){
     renderLetter();
     elExample.innerHTML = "";
     elNext.disabled = true;
+    armNextGate();
 
     // ASK
     if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
@@ -446,14 +498,14 @@ async function runLesson(){
     try { chimeStart.currentTime = 0; chimeStart.play(); } catch {}
     const q = randomChoice(QUESTIONS);
 
-    await speakAsync(q, { rate: 0.98, pitch: 1.20 });  // more lively, rising intonation
-    await waitOrPause(4000);
+    if (await raceNext (speakAsync(q, { rate: 0.98, pitch: 1.20 }))=== "NEXT");  // more lively, rising intonation
+    if (await waitOrNext(4000)=== "NEXT");
 
     // REVEAL
     state.step = "REVEAL_LETTER";
     bounceLetter();
     try{ chimeSuccess.currentTime = 0; chimeSuccess.play(); }catch{}
-    await waitOrPause(200);                       // a bit more room after the chime
+    if (await waitOrNext(200)=== "NEXT");                       // a bit more room after the chime
     const spoken  = letterName(state.currentLetter); // for UI/text if you like
     const literal = state.currentLetter;             // the raw letter
     const say     = sayLetterForTTS(state.currentLetter); // what we actually speak
@@ -462,16 +514,16 @@ async function runLesson(){
     state.lastSpoken = `De letter ${literal}!`;
 
     // Speak in two parts: normal intro, then emphasised letter
-    await speakAsync("De letter", { rate: 0.96, pitch: 1.02 });
-    await waitOrPause(150); // tiny pause so it doesn’t run together
-    await speakAsync(say + "!", { rate: 0.96, pitch: 1.02 }); // slightly higher pitch
+    if (await raceNext (speakAsync("De letter", { rate: 0.96, pitch: 1.02 }))=== "NEXT");
+    if (await waitOrNext(150)=== "NEXT"); // tiny pause so it doesn’t run together
+    if (await raceNext (speakAsync(say + "!", { rate: 0.96, pitch: 1.02 }))=== "NEXT"); // slightly higher pitch
 
 
-    await waitOrPause(700);
-    await speakAsync(`${say}.`, { rate: 0.99, pitch: 1.02 });
+    if (await waitOrNext(700)=== "NEXT");
+    if (await raceNext (speakAsync(`${say}.`, { rate: 0.99, pitch: 1.02 }))=== "NEXT");
 
-    await waitOrPause(800);
-    await speakAsync(`${say}.`, { rate: 0.85, pitch: 1.02 });
+    if (await waitOrNext(800)=== "NEXT");
+    if (await raceNext (speakAsync(`${say}.`, { rate: 0.85, pitch: 1.02 }))=== "NEXT");
 
 
 
@@ -480,12 +532,12 @@ async function runLesson(){
     const opt = randomChoice(WORD_LIST[state.currentLetter]);
     renderExample(opt);
 
-    await waitOrPause(500);
+    if (await waitOrNext(500)=== "NEXT");
     const letterNL = nameForSentence(state.currentLetter);
-    await speakAsync(`de ${letterNL} van ${opt.word}.`, { rate: 0.95, pitch: 0.98 });
+    if (await raceNext (speakAsync(`de ${letterNL} van ${opt.word}.`, { rate: 0.95, pitch: 0.98 }))=== "NEXT");
 
-    await waitOrPause(400);
-    await speakAsync(`${opt.word}.`, { rate: 0.95, pitch: 0.98 });
+    if (await waitOrNext(400)=== "NEXT");
+    if (await raceNext (speakAsync(`${opt.word}.`, { rate: 0.95, pitch: 0.98 }))=== "NEXT");
     // een kleine extra aanmoediging na ~0.4s
     if (praiseTimer) { clearTimeout(praiseTimer); }
     praiseTimer = setTimeout(async () => {
@@ -495,7 +547,7 @@ async function runLesson(){
       await speakPraise(p);           // <- uses the split-intonation rules above
       praiseTimer = null;
     }, 500);
-    await waitForNext();
+    await waitOrNext(100000);
     state.shownInSet++;
   }
 }
