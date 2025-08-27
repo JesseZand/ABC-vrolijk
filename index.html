@@ -403,12 +403,14 @@ function nameForSentence(L){
   return (names[L] || L).toLowerCase();
 }
 
-function armNextGate(){
+function armNextGate(delayMs = 0){
   // Clean previous gate if any
   if (state.nextGate?.cleanup) state.nextGate.cleanup();
 
   let resolveFn;
   const promise = new Promise(res => (resolveFn = res));
+
+  let enableTimer = null;
 
   const handler = () => {
     vibrate();
@@ -422,15 +424,31 @@ function armNextGate(){
     resolveFn("NEXT");      // signal skip
   };
 
-  elNext.disabled = false;              // enable "Next" right away
-  elNext.addEventListener("click", handler);
+  // Keep disabled until the delay has passed
+  elNext.disabled = true;
+
+  const enable = () => {
+    elNext.disabled = false;
+    // Add once so we never get duplicate handlers
+    elNext.addEventListener("click", handler, { once: true });
+  };
+
+  if (delayMs > 0) {
+    enableTimer = setTimeout(enable, delayMs);
+  } else {
+    enable();
+  }
 
   state.nextGate = {
     promise,
-    cleanup: () => elNext.removeEventListener("click", handler),
+    cleanup: () => {
+      if (enableTimer) clearTimeout(enableTimer);
+      elNext.removeEventListener("click", handler);
+    },
   };
   return state.nextGate;
 }
+
 
 // Race a pause with the user pressing Next
 function waitOrNext(ms){
@@ -520,7 +538,6 @@ async function runLesson(){
     renderLetter();
     elExample.innerHTML = "";
     elNext.disabled = true;
-    armNextGate();
 
     // ASK
     if (praiseTimer) { clearTimeout(praiseTimer); praiseTimer = null; }
@@ -535,6 +552,7 @@ async function runLesson(){
     // REVEAL
     state.step = "REVEAL_LETTER";
     bounceLetter();
+    armNextGate(3000); // <— enable “Next” only after 3s of showing the letter
     try{ chimeSuccess.currentTime = 0; chimeSuccess.play(); }catch{}
     if (await waitOrNext(200)=== "NEXT");                       // a bit more room after the chime
     const spoken  = letterName(state.currentLetter); // for UI/text if you like
