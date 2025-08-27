@@ -542,7 +542,7 @@ async function runLesson(){
     const say     = sayLetterForTTS(state.currentLetter); // what we actually speak
 
     // Store what to repeat (still the full phrase)
-    state.lastSpoken = `De letter ${literal}!`;
+    state.lastSpoken = `De letter ${say}!`;
 
     // Speak in two parts: normal intro, then emphasised letter
     if (await raceNext (speakAsync("De letter", { rate: 0.96, pitch: 1.02 }))=== "NEXT");
